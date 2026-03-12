@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>exifree — נקה מטאדאטה מתמונות</title>
-<meta name="description" content="כלי חינמי לניקוי מטאדאטה מתמונות — GPS, מכשיר, תאריך. הכל בדפדפן, אפס העלאה לשרת.">
+<title>exifree — Strip metadata from photos</title>
+<meta name="description" content="Free tool to strip metadata from photos — GPS, device, date. Everything in the browser, zero server upload.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #0a0a0a;
@@ -21,7 +21,7 @@
   --green-glow: rgba(34, 197, 94, 0.15);
   --yellow: #eab308;
   --radius: 12px;
-  --font: 'IBM Plex Sans Hebrew', 'IBM Plex Sans', sans-serif;
+  --font: 'IBM Plex Sans', sans-serif;
   --mono: 'IBM Plex Mono', monospace;
 }
 
@@ -488,7 +488,7 @@ body::before {
 .skip-link {
   position: absolute;
   top: -100px;
-  right: 0;
+  left: 0;
   padding: 8px 16px;
   background: var(--accent);
   color: #fff;
@@ -498,7 +498,7 @@ body::before {
   text-decoration: none;
 }
 
-.skip-link:focus { top: 0; right: 0; }
+.skip-link:focus { top: 0; left: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -521,55 +521,55 @@ body::before {
 </head>
 <body>
 
-<a href="#dropzone" class="skip-link">דלג לכלי</a>
+<a href="#dropzone" class="skip-link">Skip to tool</a>
 
 <div class="container">
   <header class="header" role="banner">
     <h1 class="logo">exi<span>free</span></h1>
-    <p class="tagline">נקה מטאדאטה מתמונות. בדפדפן. בלי העלאה.</p>
-    <div class="security-badge" aria-label="התמונה לא עולה לשום שרת">התמונה לא עולה לשום שרת</div>
+    <p class="tagline">Strip metadata from photos. In the browser. No upload.</p>
+    <div class="security-badge" aria-label="The image never reaches any server">The image never reaches any server</div>
   </header>
 
-  <nav class="how-it-works" aria-label="שלבי שימוש">
+  <nav class="how-it-works" aria-label="Usage steps">
     <div class="step">
       <div class="step-num">01</div>
       <div class="step-icon" aria-hidden="true">📎</div>
-      <div class="step-text">גרור תמונה</div>
+      <div class="step-text">Drop a photo</div>
     </div>
     <div class="step">
       <div class="step-num">02</div>
       <div class="step-icon" aria-hidden="true">🧹</div>
-      <div class="step-text">מטאדאטה מנוקה</div>
+      <div class="step-text">Metadata stripped</div>
     </div>
     <div class="step">
       <div class="step-num">03</div>
       <div class="step-icon" aria-hidden="true">📥</div>
-      <div class="step-text">הורד תמונה נקייה</div>
+      <div class="step-text">Download clean photo</div>
     </div>
   </nav>
 
   <main>
-  <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="גרור תמונה לכאן או לחץ לבחירת קובץ">
+  <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop a photo here or click to choose a file">
     <div class="dropzone-icon" aria-hidden="true">📷</div>
-    <div class="dropzone-text">גרור תמונה לכאן</div>
-    <div class="dropzone-sub">או לחץ לבחירת קובץ · JPG, PNG, WebP, HEIC</div>
-    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple aria-label="בחר תמונה לניקוי מטאדאטה">
+    <div class="dropzone-text">Drop a photo here</div>
+    <div class="dropzone-sub">or click to choose a file · JPG, PNG, WebP, HEIC</div>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple aria-label="Choose a photo to strip metadata">
   </div>
 
   <div class="batch-info" id="batchInfo">
-    <span><strong id="batchCount">0</strong> תמונות עובדו</span>
-    <button class="btn btn-secondary" onclick="downloadAll()" style="flex:0;padding:8px 16px;font-size:12px;">הורד הכל כ-ZIP</button>
+    <span><strong id="batchCount">0</strong> photos processed</span>
+    <button class="btn btn-secondary" onclick="downloadAll()" style="flex:0;padding:8px 16px;font-size:12px;">Download all as ZIP</button>
   </div>
 
   <div class="status-bar" id="statusBar" role="status" aria-live="polite">
     <span class="icon" aria-hidden="true" id="statusIcon">✓</span>
-    <span id="statusText">כל המטאדאטה הוסרה בהצלחה</span>
+    <span id="statusText">All metadata removed successfully</span>
   </div>
 
-  <div class="results" id="results" aria-label="תוצאות ניקוי">
+  <div class="results" id="results" aria-label="Stripping results">
     <div class="preview-card">
       <div class="preview-image-wrap">
-        <img id="previewImg" alt="תצוגה מקדימה של התמונה שנבחרה">
+        <img id="previewImg" alt="Preview of selected photo">
       </div>
       <div class="preview-filename">
         <span id="fileName">—</span>
@@ -577,32 +577,32 @@ body::before {
       </div>
     </div>
 
-    <div class="metadata-panel" id="metadataBefore" aria-label="מטאדאטה שנמצאה">
+    <div class="metadata-panel" id="metadataBefore" aria-label="Metadata found">
       <div class="metadata-header">
         <div class="metadata-title">
-          <span class="warning" aria-hidden="true">⚠</span> מטאדאטה שנמצאה
+          <span class="warning" aria-hidden="true">⚠</span> Metadata found
         </div>
-        <span class="metadata-count" id="metaCount" aria-live="polite">0 שדות</span>
+        <span class="metadata-count" id="metaCount" aria-live="polite">0 fields</span>
       </div>
       <ul class="metadata-list" id="metadataList" role="list"></ul>
     </div>
 
-    <div class="metadata-panel" id="metadataAfter" style="display:none" aria-label="תוצאת ניקוי">
+    <div class="metadata-panel" id="metadataAfter" style="display:none" aria-label="Stripping result">
       <div class="metadata-header">
         <div class="metadata-title">
-          <span class="safe" aria-hidden="true">✓</span> אחרי ניקוי
+          <span class="safe" aria-hidden="true">✓</span> After stripping
         </div>
-        <span class="metadata-count clean">נקי</span>
+        <span class="metadata-count clean">clean</span>
       </div>
-      <div class="metadata-empty">כל המטאדאטה הוסרה — GPS, מכשיר, תאריך, הכל.</div>
+      <div class="metadata-empty">All metadata removed — GPS, device, date, everything.</div>
     </div>
 
     <div class="actions">
-      <button class="btn btn-primary" id="downloadBtn" disabled aria-label="הורד תמונה נקייה">
-        📥 הורד תמונה נקייה
+      <button class="btn btn-primary" id="downloadBtn" disabled aria-label="Download clean photo">
+        📥 Download clean photo
       </button>
-      <button class="btn btn-secondary" onclick="reset()" aria-label="בחר תמונה חדשה">
-        ✕ תמונה חדשה
+      <button class="btn btn-secondary" onclick="reset()" aria-label="Choose new photo">
+        ✕ New photo
       </button>
     </div>
   </div>
@@ -610,9 +610,9 @@ body::before {
 
   <footer class="footer" role="contentinfo">
     <p>
-      exifree — כלי חינמי לניקוי מטאדאטה מתמונות<br>
-      הכל רץ בדפדפן. אפס העלאה. אפס שרת. אפס אחסון.<br>
-      by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">קוד מקור</a> · <a href="/privacy">פרטיות</a> · <a href="/accessibility">נגישות</a> · <a href="/en/">English</a> · <a href="/">← חזרה לדף הבית</a>
+      exifree — free tool to strip metadata from photos<br>
+      Runs in the browser. Zero upload. Zero server. Zero storage.<br>
+      by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">Source</a> · <a href="/privacy">Privacy</a> · <a href="/accessibility">Accessibility</a> · <a href="/en/">← Back to homepage</a>
     </p>
   </footer>
 </div>
@@ -620,19 +620,19 @@ body::before {
 <script>
 // EXIF Parser — lightweight, client-side only
 const EXIF_TAGS = {
-  0x010F: 'יצרן מצלמה', 0x0110: 'דגם מצלמה', 0x0131: 'תוכנה',
-  0x0132: 'תאריך שינוי', 0x9003: 'תאריך צילום', 0x9004: 'תאריך דיגיטציה',
-  0x829A: 'זמן חשיפה', 0x829D: 'צמצם', 0x8827: 'ISO',
-  0x920A: 'אורך מוקד', 0xA434: 'דגם עדשה', 0xA431: 'מספר סידורי מצלמה',
-  0xA432: 'מפרט עדשה', 0xA433: 'יצרן עדשה',
-  0x0112: 'כיוון', 0xA002: 'רוחב פיקסלים', 0xA003: 'גובה פיקסלים',
+  0x010F: 'Camera Make', 0x0110: 'Camera Model', 0x0131: 'Software',
+  0x0132: 'Date Modified', 0x9003: 'Date Taken', 0x9004: 'Date Digitized',
+  0x829A: 'Exposure Time', 0x829D: 'Aperture', 0x8827: 'ISO',
+  0x920A: 'Focal Length', 0xA434: 'Lens Model', 0xA431: 'Camera Serial',
+  0xA432: 'Lens Spec', 0xA433: 'Lens Make',
+  0x0112: 'Orientation', 0xA002: 'Pixel Width', 0xA003: 'Pixel Height',
   0x8825: 'GPS IFD', 0xA005: 'Interop IFD',
 };
 
 const GPS_TAGS = {
-  0x0001: 'כיוון רוחב', 0x0002: 'קו רוחב', 0x0003: 'כיוון אורך', 0x0004: 'קו אורך',
-  0x0005: 'ייחוס גובה', 0x0006: 'גובה', 0x0007: 'חותמת זמן GPS',
-  0x001D: 'תאריך GPS', 0x0010: 'כיוון תמונה', 0x0011: 'זווית כיוון',
+  0x0001: 'Lat Ref', 0x0002: 'Latitude', 0x0003: 'Lon Ref', 0x0004: 'Longitude',
+  0x0005: 'Alt Ref', 0x0006: 'Altitude', 0x0007: 'GPS Timestamp',
+  0x001D: 'GPS Date', 0x0010: 'Image Direction', 0x0011: 'Direction Angle',
 };
 
 function readExif(buffer) {
@@ -737,9 +737,9 @@ function parseExifData(view, tiffStart, metadata) {
         
         if (isGPS) {
           metadata.gps.push(entry);
-        } else if (tagName.includes('תאריך') || tagName.includes('זמן')) {
+        } else if (tagName.includes('Date') || tagName.includes('Time')) {
           metadata.datetime.push(entry);
-        } else if (tagName.includes('מצלמה') || tagName.includes('עדשה') || tagName.includes('יצרן') || tagName.includes('תוכנה') || tagName.includes('סידורי')) {
+        } else if (tagName.includes('מצלמה') || tagName.includes('עדשה') || tagName.includes('יצרן') || tagName.includes('Software') || tagName.includes('סידורי')) {
           metadata.camera.push(entry);
         } else {
           metadata.other.push(entry);
@@ -840,14 +840,14 @@ function loadHeicLibrary() {
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/iife/heic-to.js';
     script.onload = () => { heicLoaded = true; resolve(); };
-    script.onerror = () => reject(new Error('לא ניתן לטעון את ספריית HEIC'));
+    script.onerror = () => reject(new Error('Failed to load HEIC library'));
     document.head.appendChild(script);
   });
 }
 
 // Convert HEIC to JPEG blob
 async function convertHeic(file) {
-  statusText.textContent = 'טוען כלי המרה לקבצי HEIC… התמונה עצמה נשארת בדפדפן שלך';
+  statusText.textContent = 'Loading HEIC converter… the image stays in your browser';
   statusBar.classList.add('visible');
   statusBar.style.background = 'rgba(234, 179, 8, 0.1)';
   statusBar.style.borderColor = 'rgba(234, 179, 8, 0.2)';
@@ -881,7 +881,7 @@ async function processFile(file) {
     try {
       file = await convertHeic(file);
     } catch (e) {
-      statusText.textContent = 'שגיאה בהמרת HEIC — נסה להמיר ל-JPEG לפני העלאה';
+      statusText.textContent = 'HEIC conversion failed — try converting to JPEG before uploading';
       statusBar.classList.add('visible');
       statusBar.style.color = 'var(--accent)';
       document.getElementById('statusIcon').textContent = '✕';
@@ -908,10 +908,10 @@ async function processFile(file) {
   let totalFields = 0;
   
   const categories = [
-    { name: '📍 מיקום (GPS)', items: metadata.gps, danger: true },
-    { name: '📱 מכשיר', items: metadata.camera, danger: false },
-    { name: '📅 תאריך ושעה', items: metadata.datetime, danger: false },
-    { name: '📋 אחר', items: metadata.other, danger: false },
+    { name: '📍 Location (GPS)', items: metadata.gps, danger: true },
+    { name: '📱 Device', items: metadata.camera, danger: false },
+    { name: '📅 Date & Time', items: metadata.datetime, danger: false },
+    { name: '📋 Other', items: metadata.other, danger: false },
   ];
   
   categories.forEach(cat => {
@@ -937,14 +937,14 @@ async function processFile(file) {
   if (markers.types.length > 0) {
     const catEl = document.createElement('li');
     catEl.className = 'meta-category';
-    catEl.textContent = '🗂️ בלוקים שנמצאו';
+    catEl.textContent = '🗂️ Blocks found';
     metadataList.appendChild(catEl);
     
     markers.types.forEach(t => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
       li.innerHTML = `
-        <span class="metadata-key">בלוק</span>
+        <span class="metadata-key">Block</span>
         <span class="metadata-value">${t}</span>
       `;
       metadataList.appendChild(li);
@@ -952,11 +952,11 @@ async function processFile(file) {
   }
   
   if (totalFields === 0 && markers.count === 0) {
-    metadataList.innerHTML = '<li class="metadata-empty">לא נמצאה מטאדאטה בתמונה</li>';
-    metaCount.textContent = '0 שדות';
+    metadataList.innerHTML = '<li class="metadata-empty">No metadata found in this image</li>';
+    metaCount.textContent = '0 fields';
     metaCount.className = 'metadata-count clean';
   } else {
-    metaCount.textContent = `${totalFields} שדות`;
+    metaCount.textContent = `${totalFields} fields`;
     metaCount.className = 'metadata-count';
   }
   
