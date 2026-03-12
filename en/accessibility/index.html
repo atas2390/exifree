@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>exifree — Accessibility Statement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06060a;
+  --surface: #111118;
+  --border: #252530;
+  --text: #e8e8ec;
+  --text-dim: #8a8a9a;
+  --red: #ff3b3b;
+  --font: 'IBM Plex Sans', sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+}
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 80px 24px 60px;
+}
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text);
+  margin-bottom: 48px;
+  display: inline-block;
+}
+.logo span { color: var(--red); }
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.updated {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 40px;
+}
+h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 36px;
+  margin-bottom: 12px;
+}
+p {
+  font-size: 15px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+strong { color: var(--text); font-weight: 600; }
+a { color: var(--text-dim); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--text); }
+footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+*:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/en/" class="logo">exi<span>free</span></a>
+
+  <h1>Accessibility Statement</h1>
+  <p class="updated">Last updated: March 2026</p>
+
+  <h2>Commitment</h2>
+  <p>exifree is committed to digital accessibility. We aim to meet <strong>WCAG 2.1 AA</strong> standards so the tool is accessible to everyone, including people with disabilities.</p>
+
+  <h2>What we did</h2>
+  <p><strong>Semantic structure:</strong> Uses semantic elements (header, main, nav, footer) and proper heading hierarchy.</p>
+  <p><strong>Keyboard:</strong> All functionality is accessible via keyboard only — file selection, navigation, download. The dropzone supports Enter and Space.</p>
+  <p><strong>Screen readers:</strong> ARIA labels on all interactive elements, aria-live on status updates, aria-hidden on decorative elements.</p>
+  <p><strong>Contrast:</strong> Color contrast meets WCAG AA requirements. Light text on dark background.</p>
+  <p><strong>Motion:</strong> Respects prefers-reduced-motion — animations are disabled for users who request it.</p>
+  <p><strong>LTR/RTL:</strong> Full support for both English (LTR) and Hebrew (RTL) layouts.</p>
+  <p><strong>Skip to content:</strong> A "Skip to tool" / "Skip to content" link is available for keyboard users.</p>
+
+  <h2>Known limitations</h2>
+  <p>Drag and drop is not accessible to keyboard-only users — but a file selection button is available as a full alternative.</p>
+
+  <h2>Feedback</h2>
+  <p>Found an accessibility issue? <a href="https://github.com/atas2390/exifree/issues">Open an issue on GitHub</a></p>
+
+  <footer>
+    <a href="/en/">← Back to homepage</a> · by <a href="https://particular.co.il">Particular</a>
+  </footer>
+</div>
+</body>
+</html>
