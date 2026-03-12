@@ -57,6 +57,28 @@ body::before {
 }
 
 /* Header */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.top-bar .nav-lang {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.top-bar .nav-lang:hover { color: var(--text); border-color: var(--text-dim); }
+.top-bar .back-link { font-size: 13px; color: var(--text-dim); text-decoration: none; }
+.top-bar .back-link:hover { color: var(--text); }
+
 .header {
   text-align: center;
   margin-bottom: 48px;
@@ -524,6 +546,10 @@ body::before {
 <a href="#dropzone" class="skip-link">Skip to tool</a>
 
 <div class="container">
+  <div class="top-bar">
+    <a href="/en/" class="back-link">← exifree</a>
+    <a href="/app" class="nav-lang">עב</a>
+  </div>
   <header class="header" role="banner">
     <h1 class="logo">exi<span>free</span></h1>
     <p class="tagline">Strip metadata from photos. In the browser. No upload.</p>
@@ -612,7 +638,7 @@ body::before {
     <p>
       exifree — free tool to strip metadata from photos<br>
       Runs in the browser. Zero upload. Zero server. Zero storage.<br>
-      by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">Source</a> · <a href="/privacy">Privacy</a> · <a href="/accessibility">Accessibility</a> · <a href="/en/">← Back to homepage</a>
+      by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">Source</a> · <a href="/en/privacy">Privacy</a> · <a href="/en/accessibility">Accessibility</a>
     </p>
   </footer>
 </div>

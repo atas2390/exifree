@@ -57,6 +57,28 @@ body::before {
 }
 
 /* Header */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.top-bar .nav-lang {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.top-bar .nav-lang:hover { color: var(--text); border-color: var(--text-dim); }
+.top-bar .back-link { font-size: 13px; color: var(--text-dim); text-decoration: none; }
+.top-bar .back-link:hover { color: var(--text); }
+
 .header {
   text-align: center;
   margin-bottom: 48px;
@@ -524,6 +546,10 @@ body::before {
 <a href="#dropzone" class="skip-link">דלג לכלי</a>
 
 <div class="container">
+  <div class="top-bar">
+    <a href="/" class="back-link">← exifree</a>
+    <a href="/en/app" class="nav-lang">EN</a>
+  </div>
   <header class="header" role="banner">
     <h1 class="logo">exi<span>free</span></h1>
     <p class="tagline">נקה מטאדאטה מתמונות. בדפדפן. בלי העלאה.</p>
@@ -612,7 +638,7 @@ body::before {
     <p>
       exifree — כלי חינמי לניקוי מטאדאטה מתמונות<br>
       הכל רץ בדפדפן. אפס העלאה. אפס שרת. אפס אחסון.<br>
-      by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">קוד מקור</a> · <a href="/privacy">פרטיות</a> · <a href="/accessibility">נגישות</a> · <a href="/en/">English</a> · <a href="/">← חזרה לדף הבית</a>
+      by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">קוד מקור</a> · <a href="/privacy">פרטיות</a> · <a href="/accessibility">נגישות</a>
     </p>
   </footer>
 </div>

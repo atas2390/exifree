@@ -14,8 +14,9 @@
 :root { --bg:#06060a; --surface:#111118; --surface-2:#1a1a24; --border:#252530; --text:#e8e8ec; --text-dim:#8a8a9a; --red:#ff3b3b; --red-glow:rgba(255,59,59,0.08); --green:#22c55e; --green-glow:rgba(34,197,94,0.08); --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; }
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.7;-webkit-font-smoothing:antialiased}
 nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 32px;display:flex;justify-content:space-between;align-items:center;background:rgba(6,6,10,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
-.nav-logo{font-size:20px;font-weight:700;text-decoration:none;color:var(--text)}.nav-logo span{color:var(--red)}
+.nav-logo{font-size:28px;font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-0.5px}.nav-logo span{color:var(--red)}
 .nav-cta{padding:8px 20px;background:var(--text);color:var(--bg);border:none;border-radius:8px;font-family:var(--font);font-size:14px;font-weight:600;text-decoration:none;transition:opacity .2s}.nav-cta:hover{opacity:.85}
+.nav-right{display:flex;align-items:center;gap:16px}.nav-lang{font-size:13px;color:var(--text-dim);text-decoration:none;font-weight:500;padding:4px 10px;border:1px solid var(--border);border-radius:6px;transition:all .2s}.nav-lang:hover{color:var(--text);border-color:var(--text-dim)}
 .hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 24px 80px;position:relative;overflow:hidden}
 .hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,rgba(255,59,59,0.06) 0%,transparent 70%);pointer-events:none}
 .hero-warning{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;background:var(--red-glow);border:1px solid rgba(255,59,59,0.15);border-radius:100px;font-size:13px;color:var(--red);font-weight:500;margin-bottom:32px;animation:fadeDown .6s ease}
@@ -66,7 +67,10 @@ footer a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2
 <a href="#problem" class="skip-link">Skip to content</a>
 <nav aria-label="Main navigation">
   <a href="/en/" class="nav-logo">exi<span>free</span></a>
-  <a href="/en/app" class="nav-cta">Strip a photo now →</a>
+  <div class="nav-right">
+    <a href="/" class="nav-lang">עב</a>
+    <a href="/en/app" class="nav-cta">Strip a photo now →</a>
+  </div>
 </nav>
 <main>
 <section class="hero">
@@ -141,7 +145,7 @@ footer a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2
   <p style="margin-top:24px;font-size:14px;color:var(--text-dim);">Found it useful? Share with anyone who cares about privacy.</p>
 </section>
 <footer role="contentinfo">
-  <p>exifree — free tool to strip metadata from photos<br>Zero upload. Zero server. Zero storage.<br>by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">Source</a> · <a href="/en/privacy">Privacy</a> · <a href="/en/accessibility">Accessibility</a> · <a href="/">עברית</a></p>
+  <p>exifree — free tool to strip metadata from photos<br>Zero upload. Zero server. Zero storage.<br>by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">Source</a> · <a href="/en/privacy">Privacy</a> · <a href="/en/accessibility">Accessibility</a></p>
 </footer>
 </body>
 </html>

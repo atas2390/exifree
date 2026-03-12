@@ -55,10 +55,11 @@ nav {
 }
 
 .nav-logo {
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 700;
   text-decoration: none;
   color: var(--text);
+  letter-spacing: -0.5px;
 }
 
 .nav-logo span { color: var(--red); }
@@ -77,6 +78,10 @@ nav {
 }
 
 .nav-cta:hover { opacity: 0.85; }
+
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-lang { font-size: 13px; color: var(--text-dim); text-decoration: none; font-weight: 500; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.2s; }
+.nav-lang:hover { color: var(--text); border-color: var(--text-dim); }
 
 /* Hero */
 .hero {
@@ -512,7 +517,10 @@ footer a:hover { color: var(--text); }
 
 <nav aria-label="ניווט ראשי">
   <a href="/" class="nav-logo">exi<span>free</span></a>
-  <a href="/app" class="nav-cta">נקה תמונה עכשיו ←</a>
+  <div class="nav-right">
+    <a href="/en/" class="nav-lang">EN</a>
+    <a href="/app" class="nav-cta">נקה תמונה עכשיו ←</a>
+  </div>
 </nav>
 
 <!-- Hero -->
@@ -654,7 +662,7 @@ footer a:hover { color: var(--text); }
   <p>
     exifree — כלי חינמי לניקוי מטאדאטה מתמונות<br>
     אפס העלאה. אפס שרת. אפס אחסון.<br>
-    by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">קוד מקור</a> · <a href="/privacy">פרטיות</a> · <a href="/accessibility">נגישות</a> · <a href="/en/">English</a>
+    by <a href="https://particular.co.il" style="color:var(--text);">Particular</a> · <a href="https://github.com/atas2390/exifree">קוד מקור</a> · <a href="/privacy">פרטיות</a> · <a href="/accessibility">נגישות</a>
   </p>
 </footer>
 
