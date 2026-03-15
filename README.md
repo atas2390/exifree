@@ -18,7 +18,7 @@ Some apps strip EXIF, some don't. Instead of guessing — clean once before send
 
 Open `app/index.html` in your browser. Drop an image. Download clean.
 
-Live: [exifree.com](https://exifree.com)
+Live: (https://exifree.com/en/)
 
 ## License
 
