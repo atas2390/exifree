@@ -864,6 +864,8 @@ function loadHeicLibrary() {
     if (heicLoaded && window.HeicTo) { resolve(); return; }
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/iife/heic-to.js';
+    script.integrity = 'sha384-+TuTeQmUT7gbjDeK1kc34Ku+i44JqHZ6S/cgqVKf4gLclXpJJOrx9T6gxzDeTln5';
+    script.crossOrigin = 'anonymous';
     script.onload = () => { heicLoaded = true; resolve(); };
     script.onerror = () => reject(new Error('Failed to load HEIC library'));
     document.head.appendChild(script);
@@ -950,10 +952,14 @@ async function processFile(file) {
     cat.items.forEach(item => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      li.innerHTML = `
-        <span class="metadata-key">${item.key}</span>
-        <span class="metadata-value ${cat.danger ? 'danger' : ''}">${item.value}</span>
-      `;
+      const keySpan = document.createElement('span');
+      keySpan.className = 'metadata-key';
+      keySpan.textContent = item.key;
+      const valSpan = document.createElement('span');
+      valSpan.className = 'metadata-value' + (cat.danger ? ' danger' : '');
+      valSpan.textContent = item.value;
+      li.appendChild(keySpan);
+      li.appendChild(valSpan);
       metadataList.appendChild(li);
       totalFields++;
     });
@@ -968,16 +974,24 @@ async function processFile(file) {
     markers.types.forEach(t => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      li.innerHTML = `
-        <span class="metadata-key">Block</span>
-        <span class="metadata-value">${t}</span>
-      `;
+      const keySpan = document.createElement('span');
+      keySpan.className = 'metadata-key';
+      keySpan.textContent = 'Block';
+      const valSpan = document.createElement('span');
+      valSpan.className = 'metadata-value';
+      valSpan.textContent = t;
+      li.appendChild(keySpan);
+      li.appendChild(valSpan);
       metadataList.appendChild(li);
     });
   }
   
   if (totalFields === 0 && markers.count === 0) {
-    metadataList.innerHTML = '<li class="metadata-empty">No metadata found in this image</li>';
+    metadataList.innerHTML = '';
+    const emptyLi = document.createElement('li');
+    emptyLi.className = 'metadata-empty';
+    emptyLi.textContent = 'No metadata found in this image';
+    metadataList.appendChild(emptyLi);
     metaCount.textContent = '0 fields';
     metaCount.className = 'metadata-count clean';
   } else {
