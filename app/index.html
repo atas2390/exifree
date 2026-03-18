@@ -619,7 +619,7 @@ body::before {
         </div>
         <span class="metadata-count clean">נקי</span>
       </div>
-      <div class="metadata-empty">כל המטאדאטה הוסרה — GPS, מכשיר, תאריך, הכל.</div>
+      <div class="metadata-empty">המטאדאטה הוסרה באמצעות קידוד מחדש — GPS, מכשיר, תאריך, EXIF, XMP.<br><small style="color:var(--text-dim);font-size:12px;font-weight:300;">הערה: קידוד מחדש עשוי לשנות מעט את גודל הקובץ ואינו מבטיח הסרה של 100% מהנתונים בפורמטים מורכבים.</small></div>
     </div>
 
     <div class="actions">
@@ -660,29 +660,122 @@ const GPS_TAGS = {
   0x001D: 'תאריך GPS', 0x0010: 'כיוון תמונה', 0x0011: 'זווית כיוון',
 };
 
+// Detect file format from magic bytes
+function detectFormat(buffer) {
+  const b = new Uint8Array(buffer, 0, 16);
+  if (b[0] === 0xFF && b[1] === 0xD8) return 'jpeg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'png';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'webp';
+  return 'unknown';
+}
+
 function readExif(buffer) {
-  const view = new DataView(buffer);
+  const format = detectFormat(buffer);
   const metadata = { camera: [], gps: [], datetime: [], other: [] };
-  
-  // Find EXIF in JPEG
-  if (view.getUint16(0) !== 0xFFD8) return metadata; // Not JPEG
-  
+  if (format === 'jpeg') return readJpegMetadata(buffer, metadata);
+  if (format === 'png')  return readPngMetadata(buffer, metadata);
+  if (format === 'webp') return readWebpMetadata(buffer, metadata);
+  return metadata;
+}
+
+// ── JPEG ──────────────────────────────────────────────────────────────────────
+function readJpegMetadata(buffer, metadata) {
+  const view = new DataView(buffer);
   let offset = 2;
   while (offset < view.byteLength - 1) {
     const marker = view.getUint16(offset);
-    if (marker === 0xFFE1) { // APP1 — EXIF
-      const length = view.getUint16(offset + 2);
-      const exifStr = String.fromCharCode(view.getUint8(offset+4), view.getUint8(offset+5), view.getUint8(offset+6), view.getUint8(offset+7));
-      if (exifStr === 'Exif') {
-        parseExifData(view, offset + 10, metadata);
-      }
+    if (marker === 0xFFE1) {
+      const exifStr = String.fromCharCode(
+        view.getUint8(offset+4), view.getUint8(offset+5),
+        view.getUint8(offset+6), view.getUint8(offset+7)
+      );
+      if (exifStr === 'Exif') parseExifData(view, offset + 10, metadata);
       break;
     }
     if ((marker & 0xFF00) !== 0xFF00) break;
     offset += 2 + view.getUint16(offset + 2);
   }
-  
   return metadata;
+}
+
+// ── PNG ───────────────────────────────────────────────────────────────────────
+function readPngMetadata(buffer, metadata) {
+  const uint8 = new Uint8Array(buffer);
+  const view  = new DataView(buffer);
+  const dec   = new TextDecoder('latin1');
+  let offset  = 8; // skip PNG signature
+  while (offset + 12 <= buffer.byteLength) {
+    const length = view.getUint32(offset);
+    const type   = dec.decode(uint8.slice(offset + 4, offset + 8));
+    if (type === 'IEND') break;
+    try {
+      const dataStart = offset + 8;
+      if (type === 'tEXt' && length > 0) {
+        const data = uint8.slice(dataStart, dataStart + length);
+        const nullIdx = data.indexOf(0);
+        if (nullIdx > 0) {
+          const key = dec.decode(data.slice(0, nullIdx));
+          const val = dec.decode(data.slice(nullIdx + 1)).trim().substring(0, 200);
+          if (val) categorizeMeta(metadata, key, val);
+        }
+      } else if (type === 'iTXt' && length > 0) {
+        const data = uint8.slice(dataStart, dataStart + length);
+        const nullIdx = data.indexOf(0);
+        if (nullIdx > 0) metadata.other.push({ key: dec.decode(data.slice(0, nullIdx)), value: '(טקסט Unicode)' });
+      } else if (type === 'zTXt' && length > 0) {
+        const data = uint8.slice(dataStart, dataStart + length);
+        const nullIdx = data.indexOf(0);
+        if (nullIdx > 0) metadata.other.push({ key: dec.decode(data.slice(0, nullIdx)), value: '(טקסט דחוס)' });
+      } else if (type === 'eXIf' && length > 0) {
+        parseExifData(new DataView(buffer.slice(dataStart, dataStart + length)), 0, metadata);
+      } else if (type === 'iCCP') {
+        metadata.other.push({ key: 'פרופיל צבע', value: 'iCCP' });
+      }
+    } catch(e) {}
+    offset += 12 + length;
+  }
+  return metadata;
+}
+
+// ── WebP ──────────────────────────────────────────────────────────────────────
+function readWebpMetadata(buffer, metadata) {
+  const uint8 = new Uint8Array(buffer);
+  const view  = new DataView(buffer);
+  const dec   = new TextDecoder('latin1');
+  let offset  = 12; // skip RIFF+size+WEBP
+  while (offset + 8 <= buffer.byteLength) {
+    const chunkId   = dec.decode(uint8.slice(offset, offset + 4));
+    const chunkSize = view.getUint32(offset + 4, true);
+    try {
+      if (chunkId === 'EXIF') {
+        const exifBuf  = buffer.slice(offset + 8, offset + 8 + chunkSize);
+        const exifView = new DataView(exifBuf);
+        const startOffset = (exifView.getUint8(0) === 0x45) ? 6 : 0;
+        parseExifData(exifView, startOffset, metadata);
+      } else if (chunkId === 'XMP ' || chunkId === 'XMP\x20') {
+        metadata.other.push({ key: 'XMP', value: '(בלוק XMP)' });
+      } else if (chunkId === 'ICCP') {
+        metadata.other.push({ key: 'פרופיל צבע', value: 'ICCP' });
+      }
+    } catch(e) {}
+    offset += 8 + chunkSize + (chunkSize % 2);
+  }
+  return metadata;
+}
+
+// ── Helper ─────────────────────────────────────────────────────────────────────
+function categorizeMeta(metadata, key, value) {
+  const k = key.toLowerCase();
+  if (k.includes('gps') || k.includes('location') || k.includes('lat') || k.includes('lon')) {
+    metadata.gps.push({ key, value });
+  } else if (k.includes('date') || k.includes('time') || k.includes('created') || k.includes('modified')) {
+    metadata.datetime.push({ key, value });
+  } else if (k.includes('camera') || k.includes('make') || k.includes('model') || k.includes('device') || k.includes('software')) {
+    metadata.camera.push({ key, value });
+  } else {
+    metadata.other.push({ key, value });
+  }
 }
 
 function parseExifData(view, tiffStart, metadata) {
@@ -804,29 +897,34 @@ function countMetadataMarkers(buffer) {
 }
 
 // Strip metadata by re-encoding through Canvas
+// Returns { blob, outputMime, outputExt }
 function stripMetadata(file) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('לא ניתן לפענח את התמונה')); };
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
+      canvas.width  = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      
+      canvas.getContext('2d').drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
-      
-      const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-      const quality = mimeType === 'image/jpeg' ? 0.95 : undefined;
-      
+
+      let outputMime, outputExt;
+      if (file.type === 'image/png') {
+        outputMime = 'image/png';  outputExt = 'png';
+      } else if (file.type === 'image/webp') {
+        outputMime = 'image/webp'; outputExt = 'webp';
+      } else {
+        outputMime = 'image/jpeg'; outputExt = 'jpg';
+      }
+
+      const quality = (outputMime === 'image/png') ? undefined : 0.95;
       canvas.toBlob((blob) => {
-        resolve(blob);
-      }, mimeType, quality);
+        if (!blob) { reject(new Error('שגיאה ביצירת הקובץ')); return; }
+        resolve({ blob, outputMime, outputExt });
+      }, outputMime, quality);
     };
-    
     img.src = url;
   });
 }
@@ -847,6 +945,7 @@ const metadataAfter = document.getElementById('metadataAfter');
 
 let cleanBlob = null;
 let currentFileName = '';
+let cleanFileExt = 'jpg';
 let processedFiles = [];
 
 // HEIC detection
@@ -863,9 +962,7 @@ function loadHeicLibrary() {
   return new Promise((resolve, reject) => {
     if (heicLoaded && window.HeicTo) { resolve(); return; }
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/iife/heic-to.js';
-    script.integrity = 'sha384-+TuTeQmUT7gbjDeK1kc34Ku+i44JqHZ6S/cgqVKf4gLclXpJJOrx9T6gxzDeTln5';
-    script.crossOrigin = 'anonymous';
+    script.src = '/vendor/heic-to.js';
     script.onload = () => { heicLoaded = true; resolve(); };
     script.onerror = () => reject(new Error('לא ניתן לטעון את ספריית HEIC'));
     document.head.appendChild(script);
@@ -952,14 +1049,10 @@ async function processFile(file) {
     cat.items.forEach(item => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      const keySpan = document.createElement('span');
-      keySpan.className = 'metadata-key';
-      keySpan.textContent = item.key;
-      const valSpan = document.createElement('span');
-      valSpan.className = 'metadata-value' + (cat.danger ? ' danger' : '');
-      valSpan.textContent = item.value;
-      li.appendChild(keySpan);
-      li.appendChild(valSpan);
+      li.innerHTML = `
+        <span class="metadata-key">${item.key}</span>
+        <span class="metadata-value ${cat.danger ? 'danger' : ''}">${item.value}</span>
+      `;
       metadataList.appendChild(li);
       totalFields++;
     });
@@ -974,24 +1067,16 @@ async function processFile(file) {
     markers.types.forEach(t => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      const keySpan = document.createElement('span');
-      keySpan.className = 'metadata-key';
-      keySpan.textContent = 'בלוק';
-      const valSpan = document.createElement('span');
-      valSpan.className = 'metadata-value';
-      valSpan.textContent = t;
-      li.appendChild(keySpan);
-      li.appendChild(valSpan);
+      li.innerHTML = `
+        <span class="metadata-key">בלוק</span>
+        <span class="metadata-value">${t}</span>
+      `;
       metadataList.appendChild(li);
     });
   }
   
   if (totalFields === 0 && markers.count === 0) {
-    metadataList.innerHTML = '';
-    const emptyLi = document.createElement('li');
-    emptyLi.className = 'metadata-empty';
-    emptyLi.textContent = 'לא נמצאה מטאדאטה בתמונה';
-    metadataList.appendChild(emptyLi);
+    metadataList.innerHTML = '<li class="metadata-empty">לא נמצאה מטאדאטה בתמונה</li>';
     metaCount.textContent = '0 שדות';
     metaCount.className = 'metadata-count clean';
   } else {
@@ -1000,10 +1085,22 @@ async function processFile(file) {
   }
   
   // Strip metadata
-  cleanBlob = await stripMetadata(file);
-  
+  let stripResult;
+  try {
+    stripResult = await stripMetadata(file);
+  } catch(e) {
+    statusText.textContent = 'לא ניתן לעבד פורמט זה — נסה להמיר ל-JPEG לפני';
+    statusBar.style.color = 'var(--accent)';
+    document.getElementById('statusIcon').textContent = '✕';
+    statusBar.classList.add('visible');
+    dropzone.classList.remove('processing');
+    return;
+  }
+  cleanBlob    = stripResult.blob;
+  cleanFileExt = stripResult.outputExt;
+
   processedFiles.push({
-    name: file.name,
+    name: file.name.replace(/\.[^.]+$/, '') + '_clean.' + stripResult.outputExt,
     blob: cleanBlob
   });
   
@@ -1023,11 +1120,10 @@ async function processFile(file) {
 
 downloadBtn.addEventListener('click', () => {
   if (!cleanBlob) return;
-  const ext = currentFileName.split('.').pop() || 'jpg';
   const baseName = currentFileName.replace(/\.[^.]+$/, '');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(cleanBlob);
-  a.download = `${baseName}_clean.${ext}`;
+  a.download = `${baseName}_clean.${cleanFileExt}`;
   a.click();
   URL.revokeObjectURL(a.href);
 });
@@ -1040,6 +1136,7 @@ function reset() {
   downloadBtn.disabled = true;
   cleanBlob = null;
   currentFileName = '';
+  cleanFileExt = 'jpg';
   processedFiles = [];
   document.getElementById('batchInfo').classList.remove('visible');
   fileInput.value = '';
