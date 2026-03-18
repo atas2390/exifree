@@ -492,6 +492,35 @@ body::before {
 
 .batch-info strong { color: var(--text); }
 
+.size-comparison {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--green-glow);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-family: var(--mono);
+}
+.size-before { color: var(--text-dim); }
+.size-arrow { color: var(--text-dim); }
+.size-after { color: var(--green); }
+.size-saving {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 600;
+}
+
+.batch-actions {
+  margin-top: 12px;
+}
+
+.btn-downloaded {
+  background: var(--green) !important;
+  color: #000 !important;
+}
+
 /* Responsive */
 @media (max-width: 520px) {
   .container { padding: 24px 16px; }
@@ -598,6 +627,12 @@ body::before {
         <span id="fileName">—</span>
         <span class="file-size" id="fileSize">—</span>
       </div>
+      <div class="size-comparison" id="sizeComparison" style="display:none">
+        <span class="size-before">Original: <strong id="sizeBefore">—</strong></span>
+        <span class="size-arrow" aria-hidden="true">→</span>
+        <span class="size-after">Clean: <strong id="sizeAfter">—</strong></span>
+        <span class="size-saving" id="sizeSaving"></span>
+      </div>
     </div>
 
     <div class="metadata-panel" id="metadataBefore" aria-label="Metadata found">
@@ -628,6 +663,11 @@ body::before {
         ✕ New photo
       </button>
     </div>
+    <div class="batch-actions" id="batchActions" style="display:none">
+      <button class="btn btn-secondary" id="downloadAllBtn" aria-label="Download all as ZIP">
+        📦 Download all as ZIP (<span id="batchCount2">0</span> photos)
+      </button>
+      </div>
   </div>
   </main>
 
@@ -1024,6 +1064,7 @@ const metadataAfter = document.getElementById('metadataAfter');
 let cleanBlob = null;
 let currentFileName = '';
 let cleanFileExt = 'jpg';
+let originalSize = 0;
 let processedFiles = [];
 
 // HEIC detection
@@ -1093,6 +1134,8 @@ async function processFile(file) {
   }
 
   currentFileName = file.name;
+  
+  originalSize = file.size;
   
   // Show preview
   const previewUrl = URL.createObjectURL(file);
@@ -1178,6 +1221,19 @@ async function processFile(file) {
   cleanBlob    = stripResult.blob;
   cleanFileExt = stripResult.outputExt;
 
+  // Show size comparison
+  const sizeComp = document.getElementById('sizeComparison');
+  document.getElementById('sizeBefore').textContent = formatSize(originalSize);
+  document.getElementById('sizeAfter').textContent  = formatSize(cleanBlob.size);
+  const saved = originalSize - cleanBlob.size;
+  if (saved > 0) {
+    const pct = Math.round(saved / originalSize * 100);
+    document.getElementById('sizeSaving').textContent = `-${formatSize(saved)} (${pct}%)`;
+  } else {
+    document.getElementById('sizeSaving').textContent = '';
+  }
+  sizeComp.style.display = 'flex';
+
   processedFiles.push({
     name: file.name.replace(/\.[^.]+$/, '') + '_clean.' + stripResult.outputExt,
     blob: cleanBlob
@@ -1192,8 +1248,8 @@ async function processFile(file) {
   
   // Batch info
   if (processedFiles.length > 1) {
-    document.getElementById('batchInfo').classList.add('visible');
-    document.getElementById('batchCount').textContent = processedFiles.length;
+    document.getElementById('batchActions').style.display = 'block';
+    document.getElementById('batchCount2').textContent = processedFiles.length;
   }
 }
 
@@ -1205,17 +1261,59 @@ downloadBtn.addEventListener('click', () => {
   a.download = `${baseName}_clean.${cleanFileExt}`;
   a.click();
   URL.revokeObjectURL(a.href);
+
+  // Downloaded feedback
+  const orig = downloadBtn.innerHTML;
+  downloadBtn.innerHTML = '✓ Downloaded';
+  downloadBtn.classList.add('btn-downloaded');
+  setTimeout(() => {
+    downloadBtn.innerHTML = orig;
+    downloadBtn.classList.remove('btn-downloaded');
+  }, 2500);
+});
+
+// Batch ZIP download
+document.getElementById('downloadAllBtn').addEventListener('click', async () => {
+  if (processedFiles.length === 0) return;
+  const btn = document.getElementById('downloadAllBtn');
+  btn.textContent = 'Creating ZIP…';
+  btn.disabled = true;
+
+  const zip = new JSZip();
+  for (const f of processedFiles) {
+    zip.file(f.name, f.blob);
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(zipBlob);
+  a.download = 'exifree_clean.zip';
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  btn.textContent = '✓ Downloaded';
+  btn.classList.add('btn-downloaded');
+  setTimeout(() => {
+    btn.innerHTML = `📦 Download all as ZIP (<span id="batchCount2">${processedFiles.length}</span> photos)`;
+    btn.classList.remove('btn-downloaded');
+    btn.disabled = false;
+  }, 2500);
 });
 
 function reset() {
   results.classList.remove('visible');
   statusBar.classList.remove('visible');
   metadataAfter.style.display = 'none';
+  document.getElementById('sizeComparison').style.display = 'none';
+  document.getElementById('batchActions').style.display = 'none';
   dropzone.classList.remove('done', 'processing');
   downloadBtn.disabled = true;
+  downloadBtn.innerHTML = '📥 Download clean photo';
+  downloadBtn.classList.remove('btn-downloaded');
   cleanBlob = null;
   currentFileName = '';
   cleanFileExt = 'jpg';
+  originalSize = 0;
   processedFiles = [];
   document.getElementById('batchInfo').classList.remove('visible');
   fileInput.value = '';
@@ -1237,7 +1335,7 @@ dropzone.addEventListener('drop', (e) => {
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || /\.hei[cf]$/i.test(f.name));
   if (files.length > 0) {
     dropzone.classList.add('processing');
-    processFile(files[0]);
+    files.forEach(f => processFile(f));
   }
 });
 
@@ -1245,7 +1343,7 @@ fileInput.addEventListener('change', (e) => {
   const files = Array.from(e.target.files);
   if (files.length > 0) {
     dropzone.classList.add('processing');
-    processFile(files[0]);
+    files.forEach(f => processFile(f));
   }
 });
 
@@ -1258,5 +1356,6 @@ dropzone.addEventListener('keydown', (e) => {
 });
 </script>
 
+<script src="/vendor/jszip.min.js"></script>
 </body>
 </html>
