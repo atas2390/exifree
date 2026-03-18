@@ -1236,7 +1236,9 @@ async function processFile(file) {
 
   processedFiles.push({
     name: file.name.replace(/\.[^.]+$/, '') + '_clean.' + stripResult.outputExt,
-    blob: cleanBlob
+    blob: cleanBlob,
+    originalSize: originalSize,
+    cleanSize: cleanBlob.size
   });
   
   // Show results
@@ -1249,7 +1251,12 @@ async function processFile(file) {
   // Batch info
   if (processedFiles.length > 1) {
     document.getElementById('batchActions').style.display = 'block';
-    document.getElementById('batchCount2').textContent = processedFiles.length;
+    const totalOriginal = processedFiles.reduce((s, f) => s + f.originalSize, 0);
+    const totalClean    = processedFiles.reduce((s, f) => s + f.cleanSize, 0);
+    const totalSaved    = totalOriginal - totalClean;
+    const savedText     = totalSaved > 0 ? ` · saved ${formatSize(totalSaved)}` : '';
+    document.getElementById('downloadAllBtn').innerHTML =
+      `📦 Download all as ZIP (${processedFiles.length} photos${savedText})`;
   }
 }
 
