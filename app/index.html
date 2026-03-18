@@ -834,8 +834,14 @@ function categorizeMeta(metadata, key, value) {
   }
 }
 
+// Safe text escaping — prevents XSS from metadata values
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 function parseExifData(view, tiffStart, metadata) {
-  try {
     const bigEndian = view.getUint16(tiffStart) === 0x4D4D;
     const g16 = (o) => bigEndian ? view.getUint16(o) : view.getUint16(o, true);
     const g32 = (o) => bigEndian ? view.getUint32(o) : view.getUint32(o, true);
@@ -956,21 +962,64 @@ function countMetadataMarkers(buffer) {
 function stripJpeg(buffer) {
   const src = new Uint8Array(buffer);
   if (src[0] !== 0xFF || src[1] !== 0xD8) return buffer;
-  const out = [0xFF, 0xD8];
+
+  const parts = [src.slice(0, 2)]; // SOI
   let i = 2;
+
   while (i < src.length - 1) {
-    if (src[i] !== 0xFF) break;
-    const marker = (src[i] << 8) | src[i + 1];
-    if (marker === 0xFFDA) { for (let j = i; j < src.length; j++) out.push(src[j]); break; }
-    if (marker === 0xFFD9) { out.push(0xFF, 0xD9); break; }
-    if ((marker & 0xFFF8) === 0xFFD0 || marker === 0xFF01) { out.push(src[i], src[i+1]); i += 2; continue; }
-    if (i + 3 >= src.length) break;
-    const segLen = (src[i + 2] << 8) | src[i + 3];
-    const isMetadata = (marker >= 0xFFE1 && marker <= 0xFFEF) || marker === 0xFFFE;
-    if (!isMetadata) for (let j = i; j < i + 2 + segLen; j++) out.push(src[j]);
-    i += 2 + segLen;
+    // Skip fill bytes
+    while (i < src.length && src[i] === 0xFF) i++;
+    if (i >= src.length) break;
+
+    const markerByte = src[i];
+    i++;
+
+    // SOI/EOI/standalone markers
+    if (markerByte === 0xD8) { parts.push(new Uint8Array([0xFF, 0xD8])); continue; }
+    if (markerByte === 0xD9) { parts.push(new Uint8Array([0xFF, 0xD9])); break; }
+    // RST0-RST7, TEM
+    if ((markerByte >= 0xD0 && markerByte <= 0xD7) || markerByte === 0x01) {
+      parts.push(new Uint8Array([0xFF, markerByte]));
+      continue;
+    }
+
+    // All other markers have a length field
+    if (i + 1 >= src.length) break;
+    const segLen = (src[i] << 8) | src[i + 1]; // includes the 2 length bytes
+    const segEnd = i + segLen;
+    if (segEnd > src.length) break;
+
+    // SOS — copy from marker to end of file
+    if (markerByte === 0xDA) {
+      parts.push(src.slice(i - 1, src.length)); // from marker byte to EOF
+      // prepend 0xFF
+      const sos = new Uint8Array(1 + (src.length - (i - 1)));
+      sos[0] = 0xFF;
+      sos.set(src.slice(i - 1, src.length), 1);
+      parts[parts.length - 1] = sos;
+      break;
+    }
+
+    // Remove: APP1–APP15 (metadata) and COM
+    const isMetadata = (markerByte >= 0xE1 && markerByte <= 0xEF) || markerByte === 0xFE;
+    if (!isMetadata) {
+      // Keep: marker byte + length + data
+      const seg = new Uint8Array(2 + segLen);
+      seg[0] = 0xFF;
+      seg[1] = markerByte;
+      seg.set(src.slice(i, segEnd), 2);
+      parts.push(seg);
+    }
+
+    i = segEnd;
   }
-  return new Uint8Array(out).buffer;
+
+  // Concatenate all parts
+  const totalLen = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const p of parts) { out.set(p, pos); pos += p.length; }
+  return out.buffer;
 }
 
 // ── Binary PNG stripper (lossless) ───────────────────────────────────────────
@@ -1171,10 +1220,14 @@ async function processFile(file) {
     cat.items.forEach(item => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      li.innerHTML = `
-        <span class="metadata-key">${item.key}</span>
-        <span class="metadata-value ${cat.danger ? 'danger' : ''}">${item.value}</span>
-      `;
+      const keySpan = document.createElement('span');
+      keySpan.className = 'metadata-key';
+      keySpan.textContent = item.key;
+      const valSpan = document.createElement('span');
+      valSpan.className = 'metadata-value' + (cat.danger ? ' danger' : '');
+      valSpan.textContent = item.value;
+      li.appendChild(keySpan);
+      li.appendChild(valSpan);
       metadataList.appendChild(li);
       totalFields++;
     });
@@ -1189,10 +1242,14 @@ async function processFile(file) {
     markers.types.forEach(t => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      li.innerHTML = `
-        <span class="metadata-key">Block</span>
-        <span class="metadata-value">${t}</span>
-      `;
+      const keySpan = document.createElement('span');
+      keySpan.className = 'metadata-key';
+      keySpan.textContent = 'Block';
+      const valSpan = document.createElement('span');
+      valSpan.className = 'metadata-value';
+      valSpan.textContent = t;
+      li.appendChild(keySpan);
+      li.appendChild(valSpan);
       metadataList.appendChild(li);
     });
   }
@@ -1340,17 +1397,21 @@ dropzone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropzone.classList.remove('dragover');
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || /\.hei[cf]$/i.test(f.name));
-  if (files.length > 0) {
+  if (files.length === 1) {
     dropzone.classList.add('processing');
-    files.forEach(f => processFile(f));
+    processFile(files[0]);
+  } else if (files.length > 1) {
+    processBatch(files);
   }
 });
 
 fileInput.addEventListener('change', (e) => {
   const files = Array.from(e.target.files);
-  if (files.length > 0) {
+  if (files.length === 1) {
     dropzone.classList.add('processing');
-    files.forEach(f => processFile(f));
+    processFile(files[0]);
+  } else if (files.length > 1) {
+    processBatch(files);
   }
 });
 
