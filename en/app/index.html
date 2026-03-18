@@ -619,7 +619,7 @@ body::before {
         </div>
         <span class="metadata-count clean">clean</span>
       </div>
-      <div class="metadata-empty">Metadata removed via re-encode — GPS, device, date, EXIF, XMP, text chunks.<br><small style="color:var(--text-dim);font-size:12px;font-weight:300;">Note: re-encoding may slightly change file size and does not guarantee 100% removal of all edge-case embedded data.</small></div>
+      <div class="metadata-empty">All metadata removed — GPS, device, date, everything.</div>
     </div>
 
     <div class="actions">
@@ -660,140 +660,29 @@ const GPS_TAGS = {
   0x001D: 'GPS Date', 0x0010: 'Image Direction', 0x0011: 'Direction Angle',
 };
 
-// Detect file format from magic bytes
-function detectFormat(buffer) {
-  const b = new Uint8Array(buffer, 0, 16);
-  if (b[0] === 0xFF && b[1] === 0xD8) return 'jpeg';
-  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'png';
-  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
-      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'webp';
-  return 'unknown';
-}
-
 function readExif(buffer) {
-  const format = detectFormat(buffer);
-  const metadata = { camera: [], gps: [], datetime: [], other: [] };
-
-  if (format === 'jpeg') return readJpegMetadata(buffer, metadata);
-  if (format === 'png')  return readPngMetadata(buffer, metadata);
-  if (format === 'webp') return readWebpMetadata(buffer, metadata);
-  return metadata;
-}
-
-// ── JPEG ──────────────────────────────────────────────────────────────────────
-function readJpegMetadata(buffer, metadata) {
   const view = new DataView(buffer);
+  const metadata = { camera: [], gps: [], datetime: [], other: [] };
+  
+  // Find EXIF in JPEG
+  if (view.getUint16(0) !== 0xFFD8) return metadata; // Not JPEG
+  
   let offset = 2;
   while (offset < view.byteLength - 1) {
     const marker = view.getUint16(offset);
-    if (marker === 0xFFE1) {
-      const exifStr = String.fromCharCode(
-        view.getUint8(offset+4), view.getUint8(offset+5),
-        view.getUint8(offset+6), view.getUint8(offset+7)
-      );
-      if (exifStr === 'Exif') parseExifData(view, offset + 10, metadata);
+    if (marker === 0xFFE1) { // APP1 — EXIF
+      const length = view.getUint16(offset + 2);
+      const exifStr = String.fromCharCode(view.getUint8(offset+4), view.getUint8(offset+5), view.getUint8(offset+6), view.getUint8(offset+7));
+      if (exifStr === 'Exif') {
+        parseExifData(view, offset + 10, metadata);
+      }
       break;
     }
     if ((marker & 0xFF00) !== 0xFF00) break;
     offset += 2 + view.getUint16(offset + 2);
   }
+  
   return metadata;
-}
-
-// ── PNG ───────────────────────────────────────────────────────────────────────
-function readPngMetadata(buffer, metadata) {
-  const uint8 = new Uint8Array(buffer);
-  const view  = new DataView(buffer);
-  const dec   = new TextDecoder('latin1');
-  let offset  = 8; // skip 8-byte PNG signature
-
-  while (offset + 12 <= buffer.byteLength) {
-    const length = view.getUint32(offset);
-    const type   = dec.decode(uint8.slice(offset + 4, offset + 8));
-    if (type === 'IEND') break;
-
-    try {
-      const dataStart = offset + 8;
-
-      if (type === 'tEXt' && length > 0) {
-        const data    = uint8.slice(dataStart, dataStart + length);
-        const nullIdx = data.indexOf(0);
-        if (nullIdx > 0) {
-          const key = dec.decode(data.slice(0, nullIdx));
-          const val = dec.decode(data.slice(nullIdx + 1)).trim().substring(0, 200);
-          if (val) categorizeMeta(metadata, key, val);
-        }
-      } else if (type === 'iTXt' && length > 0) {
-        const data    = uint8.slice(dataStart, dataStart + length);
-        const nullIdx = data.indexOf(0);
-        if (nullIdx > 0) {
-          const key = dec.decode(data.slice(0, nullIdx));
-          metadata.other.push({ key, value: '(unicode text)' });
-        }
-      } else if (type === 'zTXt' && length > 0) {
-        const data    = uint8.slice(dataStart, dataStart + length);
-        const nullIdx = data.indexOf(0);
-        if (nullIdx > 0) {
-          const key = dec.decode(data.slice(0, nullIdx));
-          metadata.other.push({ key, value: '(compressed text)' });
-        }
-      } else if (type === 'eXIf' && length > 0) {
-        // Full EXIF block embedded in PNG
-        const exifBuf = buffer.slice(dataStart, dataStart + length);
-        parseExifData(new DataView(exifBuf), 0, metadata);
-      } else if (type === 'iCCP') {
-        metadata.other.push({ key: 'Color Profile', value: 'iCCP (ICC profile)' });
-      }
-    } catch(e) {}
-
-    offset += 12 + length;
-  }
-  return metadata;
-}
-
-// ── WebP ──────────────────────────────────────────────────────────────────────
-function readWebpMetadata(buffer, metadata) {
-  const uint8 = new Uint8Array(buffer);
-  const view  = new DataView(buffer);
-  const dec   = new TextDecoder('latin1');
-
-  // RIFF container: skip RIFF(4) + size(4) + WEBP(4) = 12 bytes
-  let offset = 12;
-  while (offset + 8 <= buffer.byteLength) {
-    const chunkId   = dec.decode(uint8.slice(offset, offset + 4));
-    const chunkSize = view.getUint32(offset + 4, true); // little-endian
-
-    try {
-      if (chunkId === 'EXIF') {
-        const exifBuf = buffer.slice(offset + 8, offset + 8 + chunkSize);
-        const exifView = new DataView(exifBuf);
-        // EXIF chunk may start with "Exif\0\0" prefix or raw TIFF header
-        const startOffset = (exifView.getUint8(0) === 0x45) ? 6 : 0; // 'E' for Exif
-        parseExifData(exifView, startOffset, metadata);
-      } else if (chunkId === 'XMP ' || chunkId === 'XMP\x20') {
-        metadata.other.push({ key: 'XMP', value: '(XMP metadata block present)' });
-      } else if (chunkId === 'ICCP') {
-        metadata.other.push({ key: 'Color Profile', value: 'ICCP (ICC profile)' });
-      }
-    } catch(e) {}
-
-    offset += 8 + chunkSize + (chunkSize % 2); // chunks are word-aligned
-  }
-  return metadata;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function categorizeMeta(metadata, key, value) {
-  const k = key.toLowerCase();
-  if (k.includes('gps') || k.includes('location') || k.includes('lat') || k.includes('lon')) {
-    metadata.gps.push({ key, value });
-  } else if (k.includes('date') || k.includes('time') || k.includes('created') || k.includes('modified')) {
-    metadata.datetime.push({ key, value });
-  } else if (k.includes('camera') || k.includes('make') || k.includes('model') || k.includes('device') || k.includes('software')) {
-    metadata.camera.push({ key, value });
-  } else {
-    metadata.other.push({ key, value });
-  }
 }
 
 function parseExifData(view, tiffStart, metadata) {
@@ -915,44 +804,29 @@ function countMetadataMarkers(buffer) {
 }
 
 // Strip metadata by re-encoding through Canvas
-// Returns { blob, outputMime, outputExt }
 function stripMetadata(file) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Could not decode image'));
-    };
-
+    
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width  = img.naturalWidth;
+      canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      canvas.getContext('2d').drawImage(img, 0, 0);
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      
       URL.revokeObjectURL(url);
-
-      // Preserve the original format where possible.
-      // WebP → keep as WebP (supported in all modern browsers).
-      // JPEG → JPEG.  PNG → PNG.  Everything else → JPEG.
-      let outputMime, outputExt;
-      if (file.type === 'image/png') {
-        outputMime = 'image/png';  outputExt = 'png';
-      } else if (file.type === 'image/webp') {
-        outputMime = 'image/webp'; outputExt = 'webp';
-      } else {
-        outputMime = 'image/jpeg'; outputExt = 'jpg';
-      }
-
-      const quality = (outputMime === 'image/png') ? undefined : 0.95;
-
+      
+      const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      const quality = mimeType === 'image/jpeg' ? 0.95 : undefined;
+      
       canvas.toBlob((blob) => {
-        if (!blob) { reject(new Error('Canvas toBlob failed')); return; }
-        resolve({ blob, outputMime, outputExt });
-      }, outputMime, quality);
+        resolve(blob);
+      }, mimeType, quality);
     };
-
+    
     img.src = url;
   });
 }
@@ -973,7 +847,6 @@ const metadataAfter = document.getElementById('metadataAfter');
 
 let cleanBlob = null;
 let currentFileName = '';
-let cleanFileExt = 'jpg';
 let processedFiles = [];
 
 // HEIC detection
@@ -990,7 +863,9 @@ function loadHeicLibrary() {
   return new Promise((resolve, reject) => {
     if (heicLoaded && window.HeicTo) { resolve(); return; }
     const script = document.createElement('script');
-    script.src = '/vendor/heic-to.js';
+    script.src = 'https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/iife/heic-to.js';
+    script.integrity = 'sha384-+TuTeQmUT7gbjDeK1kc34Ku+i44JqHZ6S/cgqVKf4gLclXpJJOrx9T6gxzDeTln5';
+    script.crossOrigin = 'anonymous';
     script.onload = () => { heicLoaded = true; resolve(); };
     script.onerror = () => reject(new Error('Failed to load HEIC library'));
     document.head.appendChild(script);
@@ -1077,10 +952,14 @@ async function processFile(file) {
     cat.items.forEach(item => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      li.innerHTML = `
-        <span class="metadata-key">${item.key}</span>
-        <span class="metadata-value ${cat.danger ? 'danger' : ''}">${item.value}</span>
-      `;
+      const keySpan = document.createElement('span');
+      keySpan.className = 'metadata-key';
+      keySpan.textContent = item.key;
+      const valSpan = document.createElement('span');
+      valSpan.className = 'metadata-value' + (cat.danger ? ' danger' : '');
+      valSpan.textContent = item.value;
+      li.appendChild(keySpan);
+      li.appendChild(valSpan);
       metadataList.appendChild(li);
       totalFields++;
     });
@@ -1095,16 +974,24 @@ async function processFile(file) {
     markers.types.forEach(t => {
       const li = document.createElement('li');
       li.className = 'metadata-item';
-      li.innerHTML = `
-        <span class="metadata-key">Block</span>
-        <span class="metadata-value">${t}</span>
-      `;
+      const keySpan = document.createElement('span');
+      keySpan.className = 'metadata-key';
+      keySpan.textContent = 'Block';
+      const valSpan = document.createElement('span');
+      valSpan.className = 'metadata-value';
+      valSpan.textContent = t;
+      li.appendChild(keySpan);
+      li.appendChild(valSpan);
       metadataList.appendChild(li);
     });
   }
   
   if (totalFields === 0 && markers.count === 0) {
-    metadataList.innerHTML = '<li class="metadata-empty">No metadata found in this image</li>';
+    metadataList.innerHTML = '';
+    const emptyLi = document.createElement('li');
+    emptyLi.className = 'metadata-empty';
+    emptyLi.textContent = 'No metadata found in this image';
+    metadataList.appendChild(emptyLi);
     metaCount.textContent = '0 fields';
     metaCount.className = 'metadata-count clean';
   } else {
@@ -1113,22 +1000,10 @@ async function processFile(file) {
   }
   
   // Strip metadata
-  let stripResult;
-  try {
-    stripResult = await stripMetadata(file);
-  } catch(e) {
-    statusText.textContent = 'Could not process this image format — try converting to JPEG first';
-    statusBar.style.color = 'var(--accent)';
-    document.getElementById('statusIcon').textContent = '✕';
-    statusBar.classList.add('visible');
-    dropzone.classList.remove('processing');
-    return;
-  }
-  cleanBlob    = stripResult.blob;
-  cleanFileExt = stripResult.outputExt;
-
+  cleanBlob = await stripMetadata(file);
+  
   processedFiles.push({
-    name: file.name.replace(/\.[^.]+$/, '') + '_clean.' + stripResult.outputExt,
+    name: file.name,
     blob: cleanBlob
   });
   
@@ -1148,10 +1023,11 @@ async function processFile(file) {
 
 downloadBtn.addEventListener('click', () => {
   if (!cleanBlob) return;
+  const ext = currentFileName.split('.').pop() || 'jpg';
   const baseName = currentFileName.replace(/\.[^.]+$/, '');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(cleanBlob);
-  a.download = `${baseName}_clean.${cleanFileExt}`;
+  a.download = `${baseName}_clean.${ext}`;
   a.click();
   URL.revokeObjectURL(a.href);
 });
@@ -1164,7 +1040,6 @@ function reset() {
   downloadBtn.disabled = true;
   cleanBlob = null;
   currentFileName = '';
-  cleanFileExt = 'jpg';
   processedFiles = [];
   document.getElementById('batchInfo').classList.remove('visible');
   fileInput.value = '';
