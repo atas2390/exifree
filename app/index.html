@@ -842,6 +842,7 @@ function escapeHtml(str) {
 }
 
 function parseExifData(view, tiffStart, metadata) {
+  try {
     const bigEndian = view.getUint16(tiffStart) === 0x4D4D;
     const g16 = (o) => bigEndian ? view.getUint16(o) : view.getUint16(o, true);
     const g32 = (o) => bigEndian ? view.getUint32(o) : view.getUint32(o, true);
@@ -909,7 +910,7 @@ function parseExifData(view, tiffStart, metadata) {
               }
             }
           }
-        } catch(e) { value = '[לא ניתן לקרוא]'; }
+        } catch(e) { value = '[unreadable]'; }
         
         if (!value) continue;
         
@@ -919,7 +920,7 @@ function parseExifData(view, tiffStart, metadata) {
           metadata.gps.push(entry);
         } else if (tagName.includes('Date') || tagName.includes('Time')) {
           metadata.datetime.push(entry);
-        } else if (tagName.includes('מצלמה') || tagName.includes('עדשה') || tagName.includes('יצרן') || tagName.includes('Software') || tagName.includes('סידורי')) {
+        } else if (tagName.includes('Camera') || tagName.includes('Lens') || tagName.includes('Software') || tagName.includes('Serial')) {
           metadata.camera.push(entry);
         } else {
           metadata.other.push(entry);
@@ -963,58 +964,37 @@ function stripJpeg(buffer) {
   const src = new Uint8Array(buffer);
   if (src[0] !== 0xFF || src[1] !== 0xD8) return buffer;
 
-  const parts = [src.slice(0, 2)]; // SOI
+  const parts = [src.slice(0, 2)]; // SOI marker
   let i = 2;
 
   while (i < src.length - 1) {
-    // Skip fill bytes
-    while (i < src.length && src[i] === 0xFF) i++;
-    if (i >= src.length) break;
+    if (src[i] !== 0xFF) break;
+    const marker = (src[i] << 8) | src[i + 1];
 
-    const markerByte = src[i];
-    i++;
-
-    // SOI/EOI/standalone markers
-    if (markerByte === 0xD8) { parts.push(new Uint8Array([0xFF, 0xD8])); continue; }
-    if (markerByte === 0xD9) { parts.push(new Uint8Array([0xFF, 0xD9])); break; }
-    // RST0-RST7, TEM
-    if ((markerByte >= 0xD0 && markerByte <= 0xD7) || markerByte === 0x01) {
-      parts.push(new Uint8Array([0xFF, markerByte]));
-      continue;
+    // EOI
+    if (marker === 0xFFD9) { parts.push(src.slice(i, i + 2)); break; }
+    // RST0-RST7, TEM — no length field
+    if ((marker & 0xFFF8) === 0xFFD0 || marker === 0xFF01) {
+      parts.push(src.slice(i, i + 2)); i += 2; continue;
     }
 
-    // All other markers have a length field
-    if (i + 1 >= src.length) break;
-    const segLen = (src[i] << 8) | src[i + 1]; // includes the 2 length bytes
-    const segEnd = i + segLen;
-    if (segEnd > src.length) break;
+    if (i + 3 >= src.length) break;
+    const segLen = (src[i + 2] << 8) | src[i + 3]; // length field (includes itself)
+    const segTotal = 2 + segLen; // marker(2) + length+data
 
-    // SOS — copy from marker to end of file
-    if (markerByte === 0xDA) {
-      parts.push(src.slice(i - 1, src.length)); // from marker byte to EOF
-      // prepend 0xFF
-      const sos = new Uint8Array(1 + (src.length - (i - 1)));
-      sos[0] = 0xFF;
-      sos.set(src.slice(i - 1, src.length), 1);
-      parts[parts.length - 1] = sos;
+    // SOS — copy from here to end of file
+    if (marker === 0xFFDA) {
+      parts.push(src.slice(i));
       break;
     }
 
-    // Remove: APP1–APP15 (metadata) and COM
-    const isMetadata = (markerByte >= 0xE1 && markerByte <= 0xEF) || markerByte === 0xFE;
-    if (!isMetadata) {
-      // Keep: marker byte + length + data
-      const seg = new Uint8Array(2 + segLen);
-      seg[0] = 0xFF;
-      seg[1] = markerByte;
-      seg.set(src.slice(i, segEnd), 2);
-      parts.push(seg);
-    }
+    // Remove: APP1–APP15 and COM
+    const isMetadata = (marker >= 0xFFE1 && marker <= 0xFFEF) || marker === 0xFFFE;
+    if (!isMetadata) parts.push(src.slice(i, i + segTotal));
 
-    i = segEnd;
+    i += segTotal;
   }
 
-  // Concatenate all parts
   const totalLen = parts.reduce((s, p) => s + p.length, 0);
   const out = new Uint8Array(totalLen);
   let pos = 0;
